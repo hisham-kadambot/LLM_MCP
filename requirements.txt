@@ -1,0 +1,7 @@
+﻿fastapi
+uvicorn
+python-jose[cryptography]
+fastapi-mcp
+openai
+anthropic
+mcp-inspector

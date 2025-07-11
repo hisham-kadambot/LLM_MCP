@@ -15,7 +15,7 @@ mcp = FastApiMCP(
     name="Protected MCP",
     auth_config=AuthConfig(dependencies=[Depends(verify_jwt_token)]),
     # mcp_dependencies=[Depends(verify_jwt_token)],  # enforce auth on all MCP calls
-    include_operations=["dummy_tool", "llm_chat_tool", "google_drive_authenticate", "google_drive_create_folder", "google_drive_upload_file", "google_drive_upload_content", "google_drive_download_file", "google_drive_list_files", "google_drive_search_files", "google_drive_delete_file", "google_drive_share_file", "google_drive_create_shared_link", "google_drive_create_customer_folder", "google_drive_upload_customer_document", "google_drive_get_customer_documents", "google_drive_status"],
+    include_operations=["dummy_tool", "llm_chat_tool", "llm_paraphrase_tool", "google_drive_authenticate", "google_drive_create_folder", "google_drive_upload_file", "google_drive_upload_content", "google_drive_download_file", "google_drive_list_files", "google_drive_search_files", "google_drive_delete_file", "google_drive_share_file", "google_drive_create_shared_link", "google_drive_create_customer_folder", "google_drive_upload_customer_document", "google_drive_get_customer_documents", "google_drive_status"],
     describe_all_responses=True,     # Include all possible response schemas in tool descriptions
     describe_full_response_schema=True  # Include full JSON schema in tool descriptions
 )

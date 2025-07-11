@@ -4,6 +4,8 @@ import os
 from openai import OpenAI
 from anthropic import Anthropic
 from .auth import user_api_keys
+import easy_llama as ez
+from ollama import chat as ollama_chat
 
 
 class LLMInterface(ABC):
@@ -101,6 +103,35 @@ class AnthropicInterface(LLMInterface):
             raise Exception(f"Anthropic API error: {str(e)}")
 
 
+class OllamaInterface(LLMInterface):
+    """Ollama LLM interface implementation using the official ollama Python client."""
+    def __init__(self, model_name: str):
+        """Initialize Ollama interface.
+        Args:
+            model_name: The name of the model to use in Ollama
+        """
+        super().__init__(model_name)
+        self.model_name = model_name
+
+    def chat(self, message: str, max_tokens: int = 256, temperature: float = 0.8, **kwargs) -> str:
+        """Send a message to Ollama and return the response.
+        Args:
+            message: The message to send
+            max_tokens: Number of tokens to generate (passed as num_predict)
+            temperature: Sampling temperature
+            **kwargs: Additional parameters (ignored for now)
+        Returns:
+            The response from Ollama
+        """
+        response = ollama_chat(
+            model=self.model_name,
+            messages=[{"role": "user", "content": message}],
+            options={"num_predict": max_tokens, "temperature": temperature}
+        )
+        # The response object has a .message.content attribute
+        return response.message.content
+
+
 # In-memory cache for storing model instances
 _model_cache: Dict[str, LLMInterface] = {}
 
@@ -147,18 +178,8 @@ def get_llm_interface(username: str, model_name: str) -> LLMInterface:
         instance = AnthropicInterface(api_key)
     
     else:
-        # For any other model, try to get the exact model name from user storage
-        api_key = user_keys.get(model_name)
-        if not api_key:
-            raise Exception(f"API key for model '{model_name}' not found for user '{username}'. Please set it using /set_api_key endpoint.")
-        
-        # Try to determine the interface type based on model name patterns
-        if any(keyword in model_name.lower() for keyword in ["gpt", "openai"]):
-            instance = OpenAIInterface(api_key)
-        elif any(keyword in model_name.lower() for keyword in ["claude", "anthropic"]):
-            instance = AnthropicInterface(api_key)
-        else:
-            raise ValueError(f"Unsupported model: {model_name}")
+        # If not OpenAI or Anthropic, treat as Ollama model (no API key required)
+        instance = OllamaInterface(model_name)
     
     # Cache the instance
     _model_cache[cache_key] = instance

@@ -35,7 +35,7 @@ async def read_user(user_id: int):
 @app.post("/chat", operation_id="llm_chat_tool")
 def llm_chat_tool(
     message: str,
-    model_name: str = "openai",
+    model_name: str = "llama2",
     username: str = Depends(verify_jwt_token),
     max_tokens: Optional[int] = None,
     temperature: Optional[float] = None

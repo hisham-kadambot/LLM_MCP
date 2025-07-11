@@ -5,6 +5,8 @@ from .auth import verify_jwt_token
 from .llm_interface import get_llm_interface
 from .routers.google_drive_router import router as google_drive_router
 from typing import Optional
+import os
+from app.services.google_drive_service import google_drive_service
 
 app = FastAPI()
 
@@ -42,32 +44,31 @@ def llm_chat_tool(
 ) -> str:
     """
     Send a message to an LLM (OpenAI or Anthropic) and get a response.
-    
-    Args:
-        message: The message to send to the LLM
-        model_name: The model to use ('openai', 'anthropic', 'gpt', 'claude', etc.)
-        username: The authenticated username (from JWT token)
-        max_tokens: Maximum tokens for the response (optional)
-        temperature: Temperature for response generation (optional)
-        
-    Returns:
-        The response from the LLM
+    If the message starts with 'download file <file_id>', download the file from Google Drive and return a message with the file path.
     """
     try:
-        # Get the LLM interface using the factory function
+        # Check for Google Drive download command
+        if message.strip().lower().startswith("download file "):
+            file_id = message.strip()[len("download file "):].strip()
+            if not file_id:
+                return "Error: No file_id provided. Usage: download file <file_id>"
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            output_path = os.path.join(temp_dir, f"downloaded_{file_id}")
+            try:
+                google_drive_service.download_file(file_id, output_path=output_path)
+                return f"File downloaded successfully to: {output_path}"
+            except Exception as e:
+                return f"Error downloading file: {e}"
+        # Normal LLM chat
         llm_interface = get_llm_interface(username, model_name)
-        
-        # Prepare kwargs for the chat method
         kwargs = {}
         if max_tokens is not None:
             kwargs['max_tokens'] = max_tokens
         if temperature is not None:
             kwargs['temperature'] = temperature
-            
-        # Send the message and get response
         response = llm_interface.chat(message, **kwargs)
         return response
-        
     except Exception as e:
         return f"Error: {str(e)}"
 

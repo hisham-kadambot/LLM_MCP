@@ -79,7 +79,7 @@ class GoogleDriveService:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_path, SCOPES
                 )
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_local_server(port=8080)
             
             # Save the credentials for the next run
             try:
@@ -235,34 +235,45 @@ class GoogleDriveService:
         except HttpError as error:
             raise Exception(f"Error uploading file content: {error}")
     
-    def download_file(self, file_id: str, output_path: Optional[str] = None) -> bytes:
+    def download_file(self, file_id: str, output_path: Optional[str] = None, export_mime_type: Optional[str] = None) -> bytes:
         """
         Download a file from Google Drive
         
         Args:
             file_id: ID of the file to download
             output_path: Path to save the file (optional)
+            export_mime_type: MIME type to export Google Docs/Sheets/Slides files (optional)
             
         Returns:
             File content as bytes
         """
         self.ensure_authenticated()
-        
         try:
-            request = self.service.files().get_media(fileId=file_id)
+            # Get file metadata to check MIME type
+            file_metadata = self.service.files().get(fileId=file_id, fields='mimeType').execute()
+            mime_type = file_metadata.get('mimeType')
+            # If it's a Google Docs/Sheets/Slides file, use export
+            if mime_type == 'application/vnd.google-apps.document':
+                export_mime_type = export_mime_type or 'application/pdf'
+                request = self.service.files().export_media(fileId=file_id, mimeType=export_mime_type)
+            elif mime_type == 'application/vnd.google-apps.spreadsheet':
+                export_mime_type = export_mime_type or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                request = self.service.files().export_media(fileId=file_id, mimeType=export_mime_type)
+            elif mime_type == 'application/vnd.google-apps.presentation':
+                export_mime_type = export_mime_type or 'application/pdf'
+                request = self.service.files().export_media(fileId=file_id, mimeType=export_mime_type)
+            else:
+                # For binary files, use the normal download
+                request = self.service.files().get_media(fileId=file_id)
             file_content = io.BytesIO()
             downloader = MediaIoBaseDownload(file_content, request)
-            
             done = False
-            while done is False:
+            while not done:
                 status, done = downloader.next_chunk()
-            
             content = file_content.getvalue()
-            
             if output_path:
                 with open(output_path, 'wb') as f:
                     f.write(content)
-            
             return content
         except HttpError as error:
             raise Exception(f"Error downloading file: {error}")

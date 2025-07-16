@@ -1,8 +1,20 @@
-﻿from pydantic import BaseModel
+﻿from pydantic import BaseModel, EmailStr
+from typing import Optional, List
+from datetime import datetime
 
-class User(BaseModel):
+# Request Models
+class UserCreate(BaseModel):
+    username: str
+    email: Optional[EmailStr] = None
+    password: str
+
+class UserLogin(BaseModel):
     username: str
     password: str
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -18,3 +30,22 @@ class LLMParaphraseRequest(BaseModel):
 
 class LLMParaphraseResponse(BaseModel):
     paraphrased_text: str
+
+# Response Models
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ApiKeyResponse(BaseModel):
+    id: int
+    model_name: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

@@ -3,7 +3,9 @@ from typing import Dict, Optional, Any
 import os
 from openai import OpenAI
 from anthropic import Anthropic
-from .auth import user_api_keys
+from sqlalchemy.orm import Session
+from .database import get_db
+from .auth import get_user_by_username, get_user_api_key
 import easy_llama as ez
 from ollama import chat as ollama_chat
 
@@ -136,12 +138,13 @@ class OllamaInterface(LLMInterface):
 _model_cache: Dict[str, LLMInterface] = {}
 
 
-def get_llm_interface(username: str, model_name: str) -> LLMInterface:
+def get_llm_interface(username: str, model_name: str, db: Session = None) -> LLMInterface:
     """Factory function to get or create an LLM interface instance.
     
     Args:
         username: The username for caching purposes
         model_name: The name of the model (openai, anthropic, etc.)
+        db: Database session (optional, will create one if not provided)
         
     Returns:
         An LLM interface instance
@@ -156,23 +159,28 @@ def get_llm_interface(username: str, model_name: str) -> LLMInterface:
     if cache_key in _model_cache:
         return _model_cache[cache_key]
     
-    # Get user's API key for the specified model
-    if username not in user_api_keys:
-        raise Exception(f"No API keys found for user '{username}'. Please set API keys first.")
+    # Get database session if not provided
+    if db is None:
+        db = next(get_db())
     
-    user_keys = user_api_keys[username]
+    # Get user from database
+    user = get_user_by_username(db, username)
+    if not user:
+        raise Exception(f"User '{username}' not found in database.")
     
     # Create new instance based on model name
     if model_name.lower() in ["openai", "gpt", "gpt-3.5-turbo", "gpt-4"]:
-        # Try to get API key from user storage first, fallback to environment variable
-        api_key = user_keys.get("openai") or user_keys.get("gpt") or user_keys.get("gpt-3.5-turbo") or user_keys.get("gpt-4") or os.getenv("OPENAI_API_KEY")
+        # Try to get API key from database first, fallback to environment variable
+        api_key_obj = get_user_api_key(db, user.id, "openai")
+        api_key = api_key_obj.api_key if api_key_obj else os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise Exception(f"OpenAI API key not found for user '{username}'. Please set it using /set_api_key endpoint.")
         instance = OpenAIInterface(api_key)
     
     elif model_name.lower() in ["anthropic", "claude", "claude-3"]:
-        # Try to get API key from user storage first, fallback to environment variable
-        api_key = user_keys.get("anthropic") or user_keys.get("claude") or user_keys.get("claude-3") or os.getenv("ANTHROPIC_API_KEY")
+        # Try to get API key from database first, fallback to environment variable
+        api_key_obj = get_user_api_key(db, user.id, "anthropic")
+        api_key = api_key_obj.api_key if api_key_obj else os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise Exception(f"Anthropic API key not found for user '{username}'. Please set it using /set_api_key endpoint.")
         instance = AnthropicInterface(api_key)
@@ -200,5 +208,5 @@ def get_cache_info() -> Dict[str, Any]:
     """
     return {
         "cache_size": len(_model_cache),
-        "cached_keys": list(_model_cache.keys())
+        "cached_models": list(_model_cache.keys())
     }

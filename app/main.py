@@ -4,6 +4,10 @@ from .routers.auth_router import router as auth_router
 from .routers.protected_router import router as protected_router
 from .routers.llm_router import router as llm_router
 from .mcp_server import app, mcp # same app instance
+from .database import create_tables
+
+# Initialize database tables
+create_tables()
 
 # app = mcp_app
 app.include_router(auth_router)

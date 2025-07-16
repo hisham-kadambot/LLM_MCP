@@ -12,3 +12,6 @@ python-multipart
 ollama
 textblob
 language-tool-python
+sqlalchemy
+passlib[bcrypt]
+python-multipart
